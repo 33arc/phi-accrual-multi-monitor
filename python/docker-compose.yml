@@ -1,0 +1,62 @@
+version: '3'
+
+services:
+  server1:
+    build: .
+    command: python server.py
+    ports:
+      - "8081:8080"
+
+  server2:
+    build: .
+    command: python server.py
+    ports:
+      - "8082:8080"
+
+  server3:
+    build: .
+    command: python server.py
+    ports:
+      - "8083:8080"
+
+  server4:
+    build: .
+    command: python server.py
+    ports:
+      - "8084:8080"
+
+  server5:
+    build: .
+    command: python server.py
+    ports:
+      - "8085:8080"
+
+  server6:
+    build: .
+    command: python server.py
+    ports:
+      - "8086:8080"
+
+  server7:
+    build: .
+    command: python server.py
+    ports:
+      - "8087:8080"
+
+  server8:
+    build: .
+    command: python server.py
+    ports:
+      - "8088:8080"
+
+  server9:
+    build: .
+    command: python server.py
+    ports:
+      - "8089:8080"
+
+  server10:
+    build: .
+    command: python server.py
+    ports:
+      - "8090:8080"
