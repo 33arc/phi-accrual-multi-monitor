@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -73,7 +74,10 @@ func loadConfig(filename string) (Config, error) {
 }
 
 func main() {
-	config, err := loadConfig("servers.yml")
+	configFile := flag.String("f", "servers.yml", "path to the configuration file")
+	flag.Parse()
+
+	config, err := loadConfig(*configFile)
 	if err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
