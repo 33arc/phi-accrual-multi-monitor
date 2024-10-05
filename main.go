@@ -3,14 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
 	"sync"
-	"testy/phidetector"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/yaml.v2"
+	"testy/phidetector"
 )
 
 var (
@@ -45,20 +46,25 @@ func pingServer(url string) error {
 	return nil
 }
 
-func monitorServer(config ServerConfig, detector *phidetector.Detector, wg *sync.WaitGroup) {
+func monitorServer(config ServerConfig, detector *phidetector.PhiAccrualFailureDetector, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		start := time.Now()
 		err := pingServer(config.URL)
 		end := time.Now()
 		duration := end.Sub(start)
+
+		timestampMillis := end.UnixNano() / int64(time.Millisecond)
 		if err == nil {
-			detector.Ping(end)
+			detector.Heartbeat(timestampMillis)
 		}
-		phi := detector.Phi(time.Now())
+
+		phi := detector.Phi(timestampMillis)
 		phiGauge.WithLabelValues(fmt.Sprintf("server%d", config.ID)).Set(phi)
+
 		fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
 			config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
+
 		time.Sleep(1 * time.Second)
 	}
 }
@@ -83,19 +89,29 @@ func main() {
 		return
 	}
 
-	const numServers = 10
-	const windowSize = 100 // Increased from 10
-	const minSamples = 10
-	detectors := make([]*phidetector.Detector, len(config.Servers))
+	detectors := make([]*phidetector.PhiAccrualFailureDetector, len(config.Servers))
 	for i := range detectors {
-		detectors[i] = phidetector.New(windowSize, minSamples)
+		detector, err := phidetector.NewBuilder().
+			SetThreshold(16.0).
+			SetMaxSampleSize(200).
+			SetMinStdDeviationMillis(500).
+			SetAcceptableHeartbeatPauseMillis(0).
+			SetFirstHeartbeatEstimateMillis(500).
+			Build()
+		if err != nil {
+			fmt.Printf("Error creating detector: %v\n", err)
+			return
+		}
+		detectors[i] = detector
 	}
+
 	var wg sync.WaitGroup
 	// Start a separate goroutine for each server
 	for i, server := range config.Servers {
 		wg.Add(1)
 		go monitorServer(server, detectors[i], &wg)
 	}
+
 	// Expose Prometheus metrics
 	http.Handle("/metrics", promhttp.Handler())
 	fmt.Println("Starting server on :8080")
@@ -104,6 +120,7 @@ func main() {
 			fmt.Printf("Error starting metrics server: %v\n", err)
 		}
 	}()
+
 	// Wait for all goroutines to finish (which they never will in this case)
 	wg.Wait()
 }
