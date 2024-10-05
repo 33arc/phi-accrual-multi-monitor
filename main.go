@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"testy/phidetector"
@@ -20,6 +22,15 @@ var (
 	)
 )
 
+type ServerConfig struct {
+	ID  int    `yaml:"id"`
+	URL string `yaml:"url"`
+}
+
+type Config struct {
+	Servers []ServerConfig `yaml:"servers"`
+}
+
 func init() {
 	prometheus.MustRegister(phiGauge)
 }
@@ -33,37 +44,53 @@ func pingServer(url string) error {
 	return nil
 }
 
-func monitorServer(id int, detector *phidetector.Detector, serverURL string, wg *sync.WaitGroup) {
+func monitorServer(config ServerConfig, detector *phidetector.Detector, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		start := time.Now()
-		err := pingServer(serverURL)
+		err := pingServer(config.URL)
 		end := time.Now()
 		duration := end.Sub(start)
 		if err == nil {
 			detector.Ping(end)
 		}
 		phi := detector.Phi(time.Now())
-		phiGauge.WithLabelValues(fmt.Sprintf("server%d", id)).Set(phi)
+		phiGauge.WithLabelValues(fmt.Sprintf("server%d", config.ID)).Set(phi)
 		fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
-			id, phi, duration, err, end.Format(time.RFC3339Nano))
+			config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
 		time.Sleep(1 * time.Second)
 	}
 }
+
+func loadConfig(filename string) (Config, error) {
+	var config Config
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return config, err
+	}
+	err = yaml.Unmarshal(data, &config)
+	return config, err
+}
+
 func main() {
+	config, err := loadConfig("servers.yml")
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		return
+	}
+
 	const numServers = 10
 	const windowSize = 100 // Increased from 10
 	const minSamples = 10
-	detectors := make([]*phidetector.Detector, numServers)
+	detectors := make([]*phidetector.Detector, len(config.Servers))
 	for i := range detectors {
 		detectors[i] = phidetector.New(windowSize, minSamples)
 	}
 	var wg sync.WaitGroup
 	// Start a separate goroutine for each server
-	for i := 0; i < numServers; i++ {
+	for i, server := range config.Servers {
 		wg.Add(1)
-		serverURL := fmt.Sprintf("http://localhost:%d/heartbeat", 8081+i)
-		go monitorServer(i+1, detectors[i], serverURL, &wg)
+		go monitorServer(server, detectors[i], &wg)
 	}
 	// Expose Prometheus metrics
 	http.Handle("/metrics", promhttp.Handler())

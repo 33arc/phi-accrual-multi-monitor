@@ -1,0 +1,22 @@
+# example
+servers:
+  - id: 1
+    url: "http://localhost:8081/heartbeat"
+  - id: 2
+    url: "http://localhost:8082/heartbeat"
+  - id: 3
+    url: "http://localhost:8083/heartbeat"
+  - id: 4
+    url: "http://localhost:8084/heartbeat"
+  - id: 5
+    url: "http://localhost:8085/heartbeat"
+  - id: 6
+    url: "http://localhost:8086/heartbeat"
+  - id: 7
+    url: "http://localhost:8087/heartbeat"
+  - id: 8
+    url: "http://localhost:8088/heartbeat"
+  - id: 9
+    url: "http://localhost:8089/heartbeat"
+  - id: 10
+    url: "http://localhost:8090/heartbeat"
