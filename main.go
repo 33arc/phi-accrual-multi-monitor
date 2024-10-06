@@ -33,6 +33,11 @@ type Config struct {
 	Servers []ServerConfig `yaml:"servers"`
 }
 
+type ServerMonitor struct {
+	config   ServerConfig
+	detector *phidetector.PhiAccrualFailureDetector
+}
+
 func init() {
 	prometheus.MustRegister(phiGauge)
 }
@@ -46,27 +51,33 @@ func pingServer(url string) error {
 	return nil
 }
 
-func monitorServer(config ServerConfig, detector *phidetector.PhiAccrualFailureDetector, wg *sync.WaitGroup) {
+func (sm *ServerMonitor) monitorServer(wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		start := time.Now()
-		err := pingServer(config.URL)
+		err := pingServer(sm.config.URL)
 		end := time.Now()
 		duration := end.Sub(start)
-
 		timestampMillis := end.UnixNano() / int64(time.Millisecond)
 		if err == nil {
-			detector.Heartbeat(timestampMillis)
+			sm.detector.Heartbeat(timestampMillis)
 		}
-
-		phi := detector.Phi(timestampMillis)
-		phiGauge.WithLabelValues(fmt.Sprintf("server%d", config.ID)).Set(phi)
-
+		phi := sm.detector.Phi(timestampMillis)
+		phiGauge.WithLabelValues(fmt.Sprintf("server%d", sm.config.ID)).Set(phi)
 		fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
-			config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
-
+			sm.config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
 		time.Sleep(1 * time.Second)
 	}
+}
+
+func createDetector() (*phidetector.PhiAccrualFailureDetector, error) {
+	return phidetector.NewBuilder().
+		SetThreshold(16.0).
+		SetMaxSampleSize(200).
+		SetMinStdDeviationMillis(500).
+		SetAcceptableHeartbeatPauseMillis(0).
+		SetFirstHeartbeatEstimateMillis(500).
+		Build()
 }
 
 func loadConfig(filename string) (Config, error) {
@@ -89,27 +100,23 @@ func main() {
 		return
 	}
 
-	detectors := make([]*phidetector.PhiAccrualFailureDetector, len(config.Servers))
-	for i := range detectors {
-		detector, err := phidetector.NewBuilder().
-			SetThreshold(16.0).
-			SetMaxSampleSize(200).
-			SetMinStdDeviationMillis(500).
-			SetAcceptableHeartbeatPauseMillis(0).
-			SetFirstHeartbeatEstimateMillis(500).
-			Build()
-		if err != nil {
-			fmt.Printf("Error creating detector: %v\n", err)
-			return
-		}
-		detectors[i] = detector
-	}
-
 	var wg sync.WaitGroup
-	// Start a separate goroutine for each server
-	for i, server := range config.Servers {
+
+	// Create and start a ServerMonitor for each server
+	for _, server := range config.Servers {
+		detector, err := createDetector()
+		if err != nil {
+			fmt.Printf("Error creating detector for server %d: %v\n", server.ID, err)
+			continue
+		}
+
+		monitor := &ServerMonitor{
+			config:   server,
+			detector: detector,
+		}
+
 		wg.Add(1)
-		go monitorServer(server, detectors[i], &wg)
+		go monitor.monitorServer(&wg)
 	}
 
 	// Expose Prometheus metrics
