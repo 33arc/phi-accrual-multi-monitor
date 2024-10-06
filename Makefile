@@ -29,10 +29,10 @@ githooks-init:
 
 # docker related stuff
 docker-compose-up:
-	./distributed-test-environment/docker-compose up --build
+	docker-compose -f ./distributed-test-environment/docker-compose.yml up --build
 .PHONY: docker-compose-up
 
 docker-compose-down:
-	./distributed-test-environment/docker-compose down
+	docker-compose -f ./distributed-test-environment/docker-compose.yml down
 .PHONY: docker-compose-down
 
