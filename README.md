@@ -38,7 +38,7 @@ This project implements a multi-target Phi Accrual Failure Detector with Prometh
    ```
    cd ..  # Return to the project root
    go build
-   ./multi-target-phi-accrual-detector
+   ./phi-accrual-multi-monitor
    ```
 
 4. Wait for a few minutes to allow the system to collect samples and stabilize.
@@ -56,15 +56,8 @@ To simulate a delay or failure in one of the servers:
 curl -X POST -H "Content-Type: application/json" -d '{"delay":10}' http://localhost:8086/control
 ```
 
-You can adjust the delay value as needed. This command adds a 10-second delay to server 6.
-
-Other available parameters:
+Available parameters:
 - `delay`: this is used in time.sleep (in seconds)
-
-Example with multiple parameters:
-```
-curl -X POST -H "Content-Type: application/json" -d '{"delay":2}' http://localhost:8085/control
-```
 
 ## Monitoring
 
