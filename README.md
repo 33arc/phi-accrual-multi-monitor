@@ -30,8 +30,7 @@ This project implements a multi-target Phi Accrual Failure Detector with Prometh
 
 2. Run Docker Compose to start the simulated servers:
    ```
-   cd python
-   docker-compose up --build
+   make docker-compose-up
    ```
 
 3. In a new terminal, build and run the Go application:
