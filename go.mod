@@ -1,4 +1,4 @@
-module testy
+module github.com/33arc/phi-accrual-multi-monitor
 
 go 1.23.1
 

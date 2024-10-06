@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/33arc/phi-accrual-multi-monitor/phidetector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v2"
-	"testy/phidetector"
 )
 
 var (
