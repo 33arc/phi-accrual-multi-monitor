@@ -23,6 +23,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
+	backupChan := make(chan int) // Channel to signal backup received
 
 	for _, server := range cfg.Servers {
 		sm, err := monitor.NewServerMonitor(server)
@@ -30,8 +31,28 @@ func main() {
 			fmt.Printf("Error creating monitor for server %d: %v\n", server.ID, err)
 			continue
 		}
+
 		wg.Add(1)
-		go sm.MonitorServer(&wg)
+
+		// go sm.MonitorServer(&wg)
+		go func(s *monitor.ServerMonitor) {
+			defer wg.Done()
+			// wait for backup signal
+			if err := s.WaitForBackup(backupChan); err != nil {
+				fmt.Printf("Error waiting for backup for server %d: %v\n", server.ID, err)
+				return
+			}
+			s.MonitorServer()
+		}(sm)
+
+		// Start a goroutine to check for backup
+		go func(serverID int) {
+			if err := checkBackup(serverID); err != nil {
+				fmt.Printf("Error checking backup for server %d: %v\n", serverID, err)
+				return
+			}
+			backupChan <- serverID
+		}(server.ID)
 	}
 
 	// Expose Prometheus metrics
@@ -44,4 +65,9 @@ func main() {
 	}()
 
 	wg.Wait()
+}
+
+func checkBackup(serverID int) error {
+	// implement the logic to check if the backup is received
+	return nil
 }

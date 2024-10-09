@@ -3,7 +3,7 @@ package monitor
 import (
 	"fmt"
 	"net/http"
-	"sync"
+	// "sync"
 	"time"
 
 	"github.com/33arc/phi-accrual-multi-monitor/config"
@@ -27,8 +27,21 @@ func NewServerMonitor(cfg config.ServerConfig) (*ServerMonitor, error) {
 	}, nil
 }
 
-func (sm *ServerMonitor) MonitorServer(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (sm *ServerMonitor) WaitForBackup(backupChan <-chan int) error {
+	timeout := time.After(3 * time.Second) // TODO: change this
+	for {
+		select {
+		case id := <-backupChan:
+			if id == sm.config.ID {
+				return nil // backup received.
+			}
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for backup")
+		}
+	}
+}
+
+func (sm *ServerMonitor) MonitorServer() {
 	for {
 		start := time.Now()
 		err := pingServer(sm.config.URL)
@@ -42,7 +55,7 @@ func (sm *ServerMonitor) MonitorServer(wg *sync.WaitGroup) {
 		metrics.PhiGauge.WithLabelValues(fmt.Sprintf("server%d", sm.config.ID)).Set(phi)
 		fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
 			sm.config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
-		time.Sleep(1 * time.Second)
+		time.Sleep(1 * time.Second) // TODO: this could be done better
 	}
 }
 
