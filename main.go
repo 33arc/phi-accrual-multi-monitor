@@ -4,7 +4,6 @@ import (
 	// "flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -12,9 +11,9 @@ import (
 	"github.com/33arc/phi-accrual-multi-monitor/config"
 	"github.com/33arc/phi-accrual-multi-monitor/monitor"
 	"github.com/33arc/phi-accrual-multi-monitor/node"
+	"github.com/33arc/phi-accrual-multi-monitor/server"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Opts represents command line options
@@ -116,14 +115,7 @@ func main() {
 		}
 	}
 
-	// Expose Prometheus metrics
-	http.Handle("/metrics", promhttp.Handler())
-	fmt.Println("Starting server on :8080")
-	go func() {
-		if err := http.ListenAndServe(":8080", nil); err != nil {
-			fmt.Printf("Error starting metrics server: %v\n", err)
-		}
-	}()
+	go server.RunHTTPServer(storage)
 
 	wg.Wait()
 }
