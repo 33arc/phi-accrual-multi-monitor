@@ -14,4 +14,4 @@ FROM golang:1.23.2-alpine3.20
 COPY --from=builder /tmp/phi /app/
 COPY --from=builder /go/src/github.com/33arc/phi-accrual-multi-monitor/servers.yml /app/
 WORKDIR /app
-CMD ["./phi", "-f", "./servers.yml"]
+# CMD ["./phi", "--config", "./servers.yml"]

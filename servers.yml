@@ -2,10 +2,18 @@
 servers:
   - id: 1
     url: "http://10.1.0.101:8080/heartbeat"
+    monitor:
+      threshold: 16.0
+      maxSampleSize: 200
+      minStdDeviationMillis: 500
+      acceptableHeartbeatPauseMillis: 0
+      firstHeartbeatEstimateMillis: 500
   - id: 2
     url: "http://10.1.0.102:8080/heartbeat"
   - id: 3
     url: "http://10.1.0.103:8080/heartbeat"
+    monitor:
+      maxSampleSize: 300
   - id: 4
     url: "http://10.1.0.104:8080/heartbeat"
   - id: 5

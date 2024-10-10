@@ -16,7 +16,7 @@ type ServerMonitor struct {
 }
 
 func NewServerMonitor(cfg config.ServerConfig) (*ServerMonitor, error) {
-	detector, err := createDetector()
+	detector, err := createDetector(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -58,12 +58,12 @@ func pingServer(url string) error {
 	return nil
 }
 
-func createDetector() (*phidetector.PhiAccrualFailureDetector, error) {
+func createDetector(cfg config.ServerConfig) (*phidetector.PhiAccrualFailureDetector, error) {
 	return phidetector.NewBuilder().
-		SetThreshold(16.0).
-		SetMaxSampleSize(200).
-		SetMinStdDeviationMillis(500).
-		SetAcceptableHeartbeatPauseMillis(0).
-		SetFirstHeartbeatEstimateMillis(500).
+		SetThreshold(cfg.Monitor.Threshold).
+		SetMaxSampleSize(cfg.Monitor.MaxSampleSize).
+		SetMinStdDeviationMillis(cfg.Monitor.MinStdDeviationMillis).
+		SetAcceptableHeartbeatPauseMillis(cfg.Monitor.AcceptableHeartbeatPauseMillis).
+		SetFirstHeartbeatEstimateMillis(cfg.Monitor.FirstHeartbeatEstimateMillis).
 		Build()
 }
