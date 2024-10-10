@@ -1,27 +1,80 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"net/http"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/33arc/phi-accrual-multi-monitor/config"
 	"github.com/33arc/phi-accrual-multi-monitor/monitor"
+	"github.com/33arc/phi-accrual-multi-monitor/node"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/jessevdk/go-flags"
 )
 
-func main() {
-	configFile := flag.String("f", "servers.yml", "path to the configuration file")
-	flag.Parse()
+// Opts represents command line options
+type Opts struct {
+	BindAddress string `long:"bind" env:"BIND" default:"127.0.0.1:3000" description:"ip:port to bind for a node"`
+	JoinAddress string `long:"join" env:"JOIN" default:"" description:"ip:port to join for a node"`
+	Bootstrap   bool   `long:"bootstrap" env:"BOOTSTRAP" description:"bootstrap a cluster"`
+	DataDir     string `long:"datadir" env:"DATA_DIR" default:"/tmp/data/" description:"Where to store system data"`
+	ConfigFile  string `yaml:"-" long:"config" default:"servers.yml" description:"Path to YAML config file"`
+}
 
-	cfg, err := config.Load(*configFile)
+func main() {
+	var opts Opts
+	var err error
+
+	p := flags.NewParser(&opts, flags.Default)
+	if _, err := p.ParseArgs(os.Args[1:]); err != nil {
+		log.Panicln(err)
+	}
+
+	log.Printf("[INFO] '%s' is used to store files of the node", opts.DataDir)
+
+	nodeConfig := node.Config{
+		BindAddress:    opts.BindAddress,
+		NodeIdentifier: opts.BindAddress,
+		JoinAddress:    opts.JoinAddress,
+		DataDir:        opts.DataDir,
+		Bootstrap:      opts.Bootstrap,
+	}
+	storage, err := node.NewRStorage(&nodeConfig)
 	if err != nil {
-		fmt.Printf("Error loading config: %v\n", err)
-		return
+		log.Panic(err)
+	}
+
+	msg := fmt.Sprintf("[INFO] Started node=%s", storage.RaftNode)
+	log.Println(msg)
+
+	go printStatus(storage)
+
+	// if we are the leader...
+	var cfg config.Config
+	if opts.ConfigFile != "" && opts.JoinAddress == "" {
+		cfg, err = config.Load(opts.ConfigFile)
+		if err != nil {
+			log.Panicln(err)
+		}
+		// TODO: set the keys to the storage.RaftNode
+	}
+
+	// If JoinAddress is not nil and there is no cluster, we have to send a POST request to this address
+	// It must be an address of the cluster leader
+	// We send POST request every second until it succeed
+	if nodeConfig.JoinAddress != "" {
+		for 1 == 1 {
+			time.Sleep(time.Second * 1)
+			err := storage.JoinCluster(nodeConfig.JoinAddress)
+			if err != nil {
+				log.Printf("[ERROR] Can't join the cluster: %+v", err)
+			} else {
+				break
+			}
+		}
 	}
 
 	done := make(chan struct{})
@@ -37,15 +90,6 @@ func main() {
 			errChan <- sm.MonitorServer(done)
 		}()
 	}
-
-	// Expose Prometheus metrics
-	http.Handle("/metrics", promhttp.Handler())
-	fmt.Println("Starting server on :8080")
-	go func() {
-		if err := http.ListenAndServe(":8080", nil); err != nil {
-			fmt.Printf("Error starting metrics server: %v\n", err)
-		}
-	}()
 
 	// wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
@@ -67,4 +111,11 @@ func main() {
 	}
 
 	fmt.Println("All server monitoring stopped. Exiting.")
+}
+
+func printStatus(s *node.RStorage) {
+	for 1 == 1 {
+		log.Printf("[DEBUG] state=%s leader=%s", s.RaftNode.State(), s.RaftNode.Leader())
+		time.Sleep(time.Second * 2)
+	}
 }
