@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"sync"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/33arc/phi-accrual-multi-monitor/config"
 	"github.com/33arc/phi-accrual-multi-monitor/monitor"
@@ -22,7 +24,8 @@ func main() {
 		return
 	}
 
-	var wg sync.WaitGroup
+	done := make(chan struct{})
+	errChan := make(chan error, len(cfg.Servers))
 
 	for _, server := range cfg.Servers {
 		sm, err := monitor.NewServerMonitor(server)
@@ -30,8 +33,9 @@ func main() {
 			fmt.Printf("Error creating monitor for server %d: %v\n", server.ID, err)
 			continue
 		}
-		wg.Add(1)
-		go sm.MonitorServer(&wg)
+		go func() {
+			errChan <- sm.MonitorServer(done)
+		}()
 	}
 
 	// Expose Prometheus metrics
@@ -43,5 +47,24 @@ func main() {
 		}
 	}()
 
-	wg.Wait()
+	// wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// wait for either an error or an interrupt
+	select {
+	case err := <-errChan:
+		fmt.Printf("Error in server monitoring: %v\n", err)
+	case <-sigChan:
+		fmt.Println("Received interrupt signal. Shutting down...")
+	}
+
+	close(done) // signal all goroutines to stop
+
+	// wait for all server monitoring goroutines to finish
+	for range cfg.Servers {
+		<-errChan
+	}
+
+	fmt.Println("All server monitoring stopped. Exiting.")
 }
