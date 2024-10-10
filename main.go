@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"github.com/hashicorp/raft"
 	"log"
+
 	"os"
 	"os/signal"
 	"syscall"
@@ -54,12 +58,11 @@ func main() {
 
 	// if we are the leader...
 	var cfg config.Config
-	if opts.ConfigFile != "" && opts.JoinAddress == "" {
+	if opts.JoinAddress == "" {
 		cfg, err = config.Load(opts.ConfigFile)
 		if err != nil {
 			log.Panicln(err)
 		}
-		// TODO: set the keys to the storage.RaftNode
 	}
 
 	// If JoinAddress is not nil and there is no cluster, we have to send a POST request to this address
@@ -79,6 +82,50 @@ func main() {
 
 	done := make(chan struct{})
 	errChan := make(chan error, len(cfg.Servers))
+
+	if storage.RaftNode.State() == raft.Leader {
+
+	}
+	switch storage.RaftNode.State() {
+	case raft.Leader:
+		// Serialize the config
+		var buf bytes.Buffer
+		enc := gob.NewEncoder(&buf)
+		err := enc.Encode(cfg)
+		if err != nil {
+			//  fmt.Errorf("error encoding config: %v", err)
+			log.Panicln()
+		}
+
+		// Set the serialized config in the Raft storage
+		err = storage.Set("config", buf.String()) // Note: Changed to String() to match the Set method signature
+		if err != nil {
+			// return fmt.Errorf("error setting config in storage: %v", err)
+			log.Panicln()
+		}
+
+		log.Println("Leader: Config serialized and stored successfully")
+	case raft.Candidate, raft.Follower:
+		// For Candidate and Follower, we'll attempt to get the config, but won't set it
+		serializedConfig /*, err*/ := storage.Get("config")
+		if err != nil {
+			// return fmt.Errorf("error getting config from storage: %v", err)
+			log.Panicln()
+		}
+
+		// Deserialize the config
+		dec := gob.NewDecoder(bytes.NewReader([]byte(serializedConfig))) // Note: Convert string to []byte
+		err = dec.Decode(cfg)
+		if err != nil {
+			// return fmt.Errorf("error decoding config: %v", err)
+			log.Panicln()
+		}
+
+		log.Println("Follower/Candidate: Config retrieved and deserialized successfully")
+
+	default:
+		log.Panicln()
+	}
 
 	for _, server := range cfg.Servers {
 		sm, err := monitor.NewServerMonitor(server)
