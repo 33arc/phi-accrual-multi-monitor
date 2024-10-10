@@ -1,62 +1,197 @@
-version: '3'
+networks:
+  phi_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.1.0.0/24
 
 services:
+  monitor1:
+    build:
+      context: ./..
+      dockerfile: Dockerfile
+    volumes:
+      - type: tmpfs
+        target: /data/
+    ports:
+      - "9000:8080"
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.111'
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+      - server6
+      - server7
+      - server8
+      - server9
+      - server10
+  monitor2:
+    build:
+      context: ./..
+      dockerfile: Dockerfile
+    volumes:
+      - type: tmpfs
+        target: /data/
+    ports:
+      - "9001:8080"
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.112'
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+      - server6
+      - server7
+      - server8
+      - server9
+      - server10
+  monitor3:
+    build:
+      context: ./..
+      dockerfile: Dockerfile
+    volumes:
+      - type: tmpfs
+        target: /data/
+    ports:
+      - "9002:8080"
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.113'
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+      - server6
+      - server7
+      - server8
+      - server9
+      - server10
+
   server1:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.101'
     ports:
       - "8081:8080"
 
   server2:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.102'
     ports:
       - "8082:8080"
 
   server3:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.103'
     ports:
       - "8083:8080"
 
   server4:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.104'
     ports:
       - "8084:8080"
 
   server5:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.105'
     ports:
       - "8085:8080"
 
   server6:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.106'
     ports:
       - "8086:8080"
 
   server7:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.107'
     ports:
       - "8087:8080"
 
   server8:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.108'
     ports:
       - "8088:8080"
 
   server9:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.109'
     ports:
       - "8089:8080"
 
   server10:
     build: .
     command: python server.py
+    volumes:
+      - type: tmpfs
+        target: /data/
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.110'
     ports:
       - "8090:8080"

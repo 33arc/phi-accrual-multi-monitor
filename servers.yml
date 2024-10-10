@@ -1,22 +1,22 @@
 # example
 servers:
   - id: 1
-    url: "http://localhost:8081/heartbeat"
+    url: "http://10.1.0.101:8080/heartbeat"
   - id: 2
-    url: "http://localhost:8082/heartbeat"
+    url: "http://10.1.0.102:8080/heartbeat"
   - id: 3
-    url: "http://localhost:8083/heartbeat"
+    url: "http://10.1.0.103:8080/heartbeat"
   - id: 4
-    url: "http://localhost:8084/heartbeat"
+    url: "http://10.1.0.104:8080/heartbeat"
   - id: 5
-    url: "http://localhost:8085/heartbeat"
+    url: "http://10.1.0.105:8080/heartbeat"
   - id: 6
-    url: "http://localhost:8086/heartbeat"
+    url: "http://10.1.0.106:8080/heartbeat"
   - id: 7
-    url: "http://localhost:8087/heartbeat"
+    url: "http://10.1.0.107:8080/heartbeat"
   - id: 8
-    url: "http://localhost:8088/heartbeat"
+    url: "http://10.1.0.108:8080/heartbeat"
   - id: 9
-    url: "http://localhost:8089/heartbeat"
+    url: "http://10.1.0.109:8080/heartbeat"
   - id: 10
-    url: "http://localhost:8090/heartbeat"
+    url: "http://10.1.0.110:8080/heartbeat"

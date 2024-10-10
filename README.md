@@ -28,24 +28,18 @@ This project implements a multi-target Phi Accrual Failure Detector with Prometh
    cd <repository-directory>
    ```
 
-2. Run Docker Compose to start the simulated servers:
+2. Run Docker Compose to start the simulated servers and monitors:
    ```
-   make docker-compose-up
-   ```
-
-3. In a new terminal, build and run the Go application:
-   ```
-   cd ..  # Return to the project root
-   go build
-   ./phi-accrual-multi-monitor
+   make run
    ```
 
-4. Wait for a few minutes to allow the system to collect samples and stabilize.
+3. Wait for a few minutes to allow the system to collect samples and stabilize.
 
-5. You can now view the Prometheus metrics at:
+4. You can now view the metrics for all monitors:
    ```
-   http://localhost:8080/metrics
+   make get_metrics
    ```
+   This will display metrics for server1 from all three monitors (ports 9000, 9001, 9002).
 
 ## Testing
 
@@ -60,10 +54,35 @@ Available parameters:
 
 ## Monitoring
 
-After applying changes to a server, monitor the console output of the Go application and check the Prometheus metrics endpoint to see how the phi values change.
+After applying changes to a server, use the get_metrics command to see how the phi values change:
+```
+make get_metrics
+```
 
-To view current phi values for all servers:
+To view metrics for a different server:
+
 ```
-curl http://localhost:8080/metrics | grep server_phi_value
+make get_metrics SERVER=server2
 ```
+
+## Additional Commands
+
+To stop the Docker environment:
+```
+make docker-compose-down
+```
+
+For a list of all available commands:
+```
+make help
+```
+
+## Prometheus Metrics
+
+If you've set up Prometheus metrics, you can access them at:
+```
+http://localhost:<monitor-port>/metrics
+```
+
+Replace <monitor-port> with 9000, 9001, or 9002 for the respective monitor.
 
