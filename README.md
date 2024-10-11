@@ -13,6 +13,7 @@ This project implements a multi-target Phi Accrual Failure Detector with Prometh
 - Monitors multiple servers concurrently
 - Uses the Phi Accrual algorithm for failure detection
 - Exports metrics to Prometheus
+- Uses Raft consensus algorithm to ensure consistent config file replication
 
 ## Prerequisites
 
@@ -84,5 +85,5 @@ If you've set up Prometheus metrics, you can access them at:
 http://localhost:<monitor-port>/metrics
 ```
 
-Replace <monitor-port> with 9000, 9001, or 9002 for the respective monitor.
+Replace <monitor-port> with 8000, 8001, or 8002 for the respective monitor.
 
