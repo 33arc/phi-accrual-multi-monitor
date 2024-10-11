@@ -26,14 +26,27 @@ type Opts struct {
 }
 
 func main() {
-	var opts Opts
-	var err error
+	opts := parseCommandLineFlags()
+	storage := initializeStorage(opts)
+	cfg := setupConfiguration(storage, opts)
 
+	go printStatus(storage)
+
+	monitorServers(cfg, storage)
+
+	waitForShutdownSignal()
+}
+
+func parseCommandLineFlags() Opts {
+	var opts Opts
 	p := flags.NewParser(&opts, flags.Default)
 	if _, err := p.ParseArgs(os.Args[1:]); err != nil {
 		log.Fatalf("[ERROR] Failed to parse arguments: %v", err)
 	}
+	return opts
+}
 
+func initializeStorage(opts Opts) *node.RStorage {
 	log.Printf("[INFO] Using data directory: %s", opts.DataDir)
 
 	nodeConfig := node.StorageConfig{
@@ -54,125 +67,128 @@ func main() {
 		log.Fatalf("[ERROR] Storage is nil after creation")
 	}
 
-	var cfg *config.Config
+	return storage
+}
 
+func setupConfiguration(storage *node.RStorage, opts Opts) *config.Config {
 	if opts.Bootstrap {
-		cfg, err = config.Load(opts.ConfigFile)
-		if err != nil {
-			log.Fatalf("[ERROR] Failed to load config: %v", err)
-		}
-
-		log.Println("[INFO] Waiting to become leader...")
-		for storage.RaftNode.State() != raft.Leader {
-			time.Sleep(time.Second)
-		}
-		log.Println("[INFO] Node is now the leader")
-
-		encodedConfig, err := cfg.Encode()
-		if err != nil {
-			log.Fatalf("[ERROR] Failed to encode config: %v", err)
-		}
-
-		// Use log.Printf to format the output correctly
-		// log.Printf("STRING ENCODED CONFIG SIZE: %d", len(encodedConfig))
-
-		if err := storage.Set("config", string(encodedConfig)); err != nil {
-			log.Fatalf("[ERROR] Failed to set initial config: %v", err)
-		}
-
-		// expected, err := storage.Get("config")
-		// if err != nil {
-		// 	log.Panicln(err)
-		// }
-
-		// No need to convert expected to bytes; just compare directly
-		// if string(encodedConfig) == expected {
-		// 	log.Println("encoded and stored values match")
-		// } else {
-		// 	log.Fatalf("encoded and stored values DO NOT MATCH")
-		// }
-		log.Println("[INFO] Initial config set successfully")
+		return bootstrapConfiguration(storage, opts)
 	} else if opts.JoinAddress != "" {
-		log.Println("[INFO] Attempting to join cluster...")
+		return joinClusterAndFetchConfig(storage, opts)
+	}
+	return nil
+}
 
-		maxRetries := 10
-		for i := 0; i < maxRetries; i++ {
-			log.Printf("[INFO] Joining cluster attempt %d/%d", i+1, maxRetries)
-			err := storage.JoinCluster(opts.JoinAddress)
-			if err == nil {
-				log.Println("[INFO] Successfully joined the cluster")
-				break
-			}
-			if i == maxRetries-1 {
-				log.Fatalf("[ERROR] Failed to join cluster after %d attempts: %v", maxRetries, err)
-			}
-			log.Printf("[WARN] Failed to join cluster, retrying: %v", err)
-			time.Sleep(time.Second * 5)
-		}
-
-		log.Println("[INFO] Fetching config from leader...")
-		maxConfigRetries := 5
-		for i := 0; i < maxConfigRetries; i++ {
-			err := storage.RequestConfigFromLeader()
-			if err == nil {
-				log.Println("[INFO] Successfully fetched config from leader")
-				break
-			}
-			if i == maxConfigRetries-1 {
-				log.Fatalf("[ERROR] Failed to fetch config after %d attempts: %v", maxConfigRetries, err)
-			}
-			log.Printf("[WARN] Failed to fetch config, retrying: %v", err)
-			time.Sleep(time.Second * 2)
-		}
-
-		cfgStr, err := storage.Get("config")
-		if err != nil {
-			log.Fatalf("[ERROR] Failed to get config from storage: %v", err)
-		}
-		// log.Println("STRING ENCODED CONFIG SIZE %d", len(cfgStr))
-		cfg, err = config.DecodeConfig([]byte(cfgStr))
-		if err != nil {
-			log.Fatalf("[ERROR] Failed to decode config: %v", err)
-		}
+func bootstrapConfiguration(storage *node.RStorage, opts Opts) *config.Config {
+	cfg, err := config.Load(opts.ConfigFile)
+	if err != nil {
+		log.Fatalf("[ERROR] Failed to load config: %v", err)
 	}
 
-	log.Printf("[INFO] Started node: %s", storage.RaftNode.String())
+	waitForLeadership(storage)
 
-	go printStatus(storage)
+	if err := setInitialConfig(storage, cfg); err != nil {
+		log.Fatalf("[ERROR] Failed to set initial config: %v", err)
+	}
 
+	return cfg
+}
+
+func waitForLeadership(storage *node.RStorage) {
+	log.Println("[INFO] Waiting to become leader...")
+	for storage.RaftNode.State() != raft.Leader {
+		time.Sleep(time.Second)
+	}
+	log.Println("[INFO] Node is now the leader")
+}
+
+func setInitialConfig(storage *node.RStorage, cfg *config.Config) error {
+	encodedConfig, err := cfg.Encode()
+	if err != nil {
+		return err
+	}
+
+	if err := storage.Set("config", string(encodedConfig)); err != nil {
+		return err
+	}
+
+	log.Println("[INFO] Initial config set successfully")
+	return nil
+}
+
+func joinClusterAndFetchConfig(storage *node.RStorage, opts Opts) *config.Config {
+	joinCluster(storage, opts.JoinAddress)
+	return fetchConfigFromLeader(storage)
+}
+
+func joinCluster(storage *node.RStorage, joinAddress string) {
+	log.Println("[INFO] Attempting to join cluster...")
+	retryOperation(func() error {
+		return storage.JoinCluster(joinAddress)
+	}, 10, 5*time.Second, "[INFO] Successfully joined the cluster")
+}
+
+func fetchConfigFromLeader(storage *node.RStorage) *config.Config {
+	log.Println("[INFO] Fetching config from leader...")
+	retryOperation(func() error {
+		return storage.RequestConfigFromLeader()
+	}, 5, 2*time.Second, "[INFO] Successfully fetched config from leader")
+
+	cfgStr, err := storage.Get("config")
+	if err != nil {
+		log.Fatalf("[ERROR] Failed to get config from storage: %v", err)
+	}
+
+	cfg, err := config.DecodeConfig([]byte(cfgStr))
+	if err != nil {
+		log.Fatalf("[ERROR] Failed to decode config: %v", err)
+	}
+
+	return cfg
+}
+
+func retryOperation(operation func() error, maxRetries int, delay time.Duration, successMessage string) {
+	for i := 0; i < maxRetries; i++ {
+		log.Printf("[INFO] Attempt %d/%d", i+1, maxRetries)
+		err := operation()
+		if err == nil {
+			log.Println(successMessage)
+			return
+		}
+		if i == maxRetries-1 {
+			log.Fatalf("[ERROR] Operation failed after %d attempts: %v", maxRetries, err)
+		}
+		log.Printf("[WARN] Attempt failed, retrying: %v", err)
+		time.Sleep(delay)
+	}
+}
+
+func monitorServers(cfg *config.Config, storage *node.RStorage) {
 	done := make(chan struct{})
 	errChan := make(chan error, len(cfg.Servers))
 
 	for _, server := range cfg.Servers {
-		sm, err := monitor.NewServerMonitor(server)
-		if err != nil {
-			log.Printf("[ERROR] Error creating monitor for server %d: %v", server.ID, err)
-			continue
-		}
-		go func() {
-			errChan <- sm.MonitorServer(done)
-		}()
+		go monitorServer(server, done, errChan)
 	}
 
 	go server.RunHTTPServer(storage)
+}
 
+func monitorServer(server config.ServerConfig, done chan struct{}, errChan chan error) {
+	sm, err := monitor.NewServerMonitor(server)
+	if err != nil {
+		log.Printf("[ERROR] Error creating monitor for server %d: %v", server.ID, err)
+		return
+	}
+	errChan <- sm.MonitorServer(done)
+}
+
+func waitForShutdownSignal() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	select {
-	case err := <-errChan:
-		log.Printf("[ERROR] Error in server monitoring: %v", err)
-	case <-sigChan:
-		log.Println("[INFO] Received interrupt signal. Shutting down...")
-	}
-
-	close(done)
-
-	for range cfg.Servers {
-		<-errChan
-	}
-
-	log.Println("[INFO] All server monitoring stopped. Exiting.")
+	<-sigChan
+	log.Println("[INFO] Received interrupt signal. Shutting down...")
 }
 
 func printStatus(s *node.RStorage) {
