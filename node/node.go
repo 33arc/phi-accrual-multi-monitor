@@ -72,6 +72,7 @@ func NewRStorage(config *StorageConfig) (*RStorage, error) {
 
 	raftConfig.ElectionTimeout = time.Duration(500) * time.Millisecond
 	raftConfig.HeartbeatTimeout = raftConfig.ElectionTimeout / 2
+	raftConfig.LeaderLeaseTimeout = time.Duration(250) * time.Millisecond
 
 	transport, err := raftTransport(config.RaftBindAddress, logger)
 	if err != nil {
