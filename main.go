@@ -97,7 +97,7 @@ func bootstrapConfiguration(storage *node.RStorage, opts Opts) *config.Config {
 func waitForLeadership(storage *node.RStorage) {
 	log.Println("[INFO] Waiting to become leader...")
 	for storage.RaftNode.State() != raft.Leader {
-		time.Sleep(time.Second)
+		time.Sleep(time.Duration(500) * time.Millisecond)
 	}
 	log.Println("[INFO] Node is now the leader")
 }
