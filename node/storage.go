@@ -17,17 +17,17 @@ import (
 type logEvent struct {
 	Type  string `json:"type"`
 	Key   string `json:"key"`
-	Value string `json:"value"`
+	Value []byte `json:"value"`
 }
 
 // Get retrieves the value associated with the given key from storage.
-func (s *RStorage) Get(key string) (string, error) {
+func (s *RStorage) Get(key string) ([]byte, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	value, ok := s.storage[key]
 	if !ok {
-		return "", fmt.Errorf("key not found: %s", key)
+		return nil, fmt.Errorf("key not found: %s", key)
 	}
 
 	// Return the string value directly
@@ -35,7 +35,7 @@ func (s *RStorage) Get(key string) (string, error) {
 }
 
 // Set stores the given value by key in the storage.
-func (s *RStorage) Set(key string, value string) error {
+func (s *RStorage) Set(key string, value []byte) error {
 	if s.RaftNode.State() != raft.Leader {
 		return fmt.Errorf("only leader can write to the storage")
 	}
@@ -86,7 +86,7 @@ func (s *RStorage) Apply(logEntry *raft.Log) interface{} {
 
 // fsmSnapshot is used by Raft library to save a point-in-time snapshot of the FSM
 type fsmSnapshot struct {
-	storage map[string]string
+	storage map[string][]byte
 }
 
 // Snapshot returns FSMSnapshot which is used to save snapshot of the FSM
@@ -94,7 +94,7 @@ func (s *RStorage) Snapshot() (raft.FSMSnapshot, error) {
 	s.logger.Debug("Creating snapshot")
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	storageCopy := make(map[string]string)
+	storageCopy := make(map[string][]byte)
 	for k, v := range s.storage {
 		storageCopy[k] = v
 	}
@@ -165,8 +165,8 @@ func (s *RStorage) DistributeConfig() error {
 	return nil
 }
 
-func (s *RStorage) sendConfigToFollower(serverAddr string, config string) error {
-	data := map[string]string{"config": config}
+func (s *RStorage) sendConfigToFollower(serverAddr string, config []byte) error {
+	data := map[string][]byte{"config": config}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -204,27 +204,27 @@ func (s *RStorage) RequestConfigFromLeader() error {
 	return s.SetLocalConfig(config)
 }
 
-func (s *RStorage) fetchConfigFromLeader(leaderAddr string) (string, error) {
+func (s *RStorage) fetchConfigFromLeader(leaderAddr string) ([]byte, error) {
 	url := fmt.Sprintf("http://%s/config", s.getHTTPAddr(leaderAddr))
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %v", err)
+		return nil, fmt.Errorf("HTTP request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to fetch config: status code %d, body: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("failed to fetch config: status code %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %v", err)
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	return string(body), nil
+	return body, nil
 }
 
 // Helper function to convert Raft address to HTTP address
@@ -236,7 +236,7 @@ func (s *RStorage) getHTTPAddr(raftAddr string) string {
 	return fmt.Sprintf("%s:%d", host, port+1000)
 }
 
-func (s *RStorage) SetLocalConfig(encodedConfig string) error {
+func (s *RStorage) SetLocalConfig(encodedConfig []byte) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.storage["config"] = encodedConfig

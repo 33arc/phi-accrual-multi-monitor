@@ -55,7 +55,7 @@ func getKeyView(storage *node.RStorage) func(*gin.Context) {
 }
 
 type setKeyData struct {
-	Value string `json:"value"`
+	Value []byte `json:"value"`
 }
 
 func setKeyView(storage *node.RStorage) func(*gin.Context) {
@@ -123,7 +123,7 @@ func getConfigView(storage *node.RStorage) gin.HandlerFunc {
 func setConfigView(storage *node.RStorage) func(*gin.Context) {
 	return func(c *gin.Context) {
 		var data struct {
-			Config string `json:"config"`
+			Config []byte `json:"config"`
 		}
 		if err := c.BindJSON(&data); err != nil {
 			c.JSON(400, gin.H{"error": "Invalid request"})

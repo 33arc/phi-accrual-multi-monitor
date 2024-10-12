@@ -32,7 +32,7 @@ type StorageConfig struct {
 // Also, it represents finite-state machine which processes Raft log events
 type RStorage struct {
 	mutex    sync.Mutex
-	storage  map[string]string
+	storage  map[string][]byte
 	RaftNode *raft.Raft
 	Config   StorageConfig
 	logger   hclog.Logger
@@ -44,7 +44,7 @@ func NewRStorage(config *StorageConfig) (*RStorage, error) {
 		return nil, errors.New("config cannot be nil")
 	}
 	rstorage := &RStorage{
-		storage: make(map[string]string),
+		storage: make(map[string][]byte),
 		Config:  *config,
 		logger: hclog.New(&hclog.LoggerOptions{
 			Name:   "raft-storage",
@@ -72,6 +72,7 @@ func NewRStorage(config *StorageConfig) (*RStorage, error) {
 
 	raftConfig.ElectionTimeout = time.Duration(500) * time.Millisecond
 	raftConfig.HeartbeatTimeout = raftConfig.ElectionTimeout / 2
+	raftConfig.LeaderLeaseTimeout = time.Duration(250) * time.Millisecond
 
 	transport, err := raftTransport(config.RaftBindAddress, logger)
 	if err != nil {
