@@ -70,6 +70,9 @@ func NewRStorage(config *StorageConfig) (*RStorage, error) {
 	raftConfig.LocalID = raft.ServerID(config.NodeIdentifier)
 	raftConfig.Logger = logger
 
+	raftConfig.ElectionTimeout = time.Duration(500) * time.Millisecond
+	raftConfig.HeartbeatTimeout = raftConfig.ElectionTimeout / 2
+
 	transport, err := raftTransport(config.RaftBindAddress, logger)
 	if err != nil {
 		return nil, err
