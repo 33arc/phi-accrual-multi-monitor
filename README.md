@@ -42,6 +42,11 @@ This project implements a multi-target Phi Accrual Failure Detector with Prometh
    ```
    This will display metrics for server1 from all three monitors (ports 9000, 9001, 9002).
 
+5. You can also add additional servers at runtime:
+   ```
+   curl -X PATCH http://localhost:8000/config --json '{"id":10,"url":"http://10.1.0.110:8080/heartbeat","monitor":{"threshold":16.0,"maxSampleSize":200,"minStdDeviationMillis":500,"acceptableHeartbeatPauseMillis":0,"firstHeartbeatEstimateMillis":500}}'
+   ```
+
 ## Testing
 
 To simulate a delay or failure in one of the servers:
