@@ -108,7 +108,7 @@ func setInitialConfig(storage *node.RStorage, cfg *config.Config) error {
 		return err
 	}
 
-	if err := storage.Set("config", string(encodedConfig)); err != nil {
+	if err := storage.Set("config", encodedConfig); err != nil {
 		return err
 	}
 

@@ -1,10 +1,12 @@
 package server
 
 import (
+	// "encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/33arc/phi-accrual-multi-monitor/config"
 	"github.com/33arc/phi-accrual-multi-monitor/node"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,10 +16,6 @@ type joinData struct {
 	Address string `json:"address"`
 }
 
-// joinView handles 'join' request from another nodes
-// if some node wants to join to the cluster it must be added by leader
-// so this node sends a POST request to the leader with it's address and the leades adds it as a voter
-// if this node os not a leader, it forwards request to current cluster leader
 func joinView(storage *node.RStorage) func(*gin.Context) {
 	return func(c *gin.Context) {
 		var data joinData
@@ -41,46 +39,37 @@ func joinView(storage *node.RStorage) func(*gin.Context) {
 }
 
 func getKeyView(storage *node.RStorage) func(*gin.Context) {
-	view := func(c *gin.Context) {
+	return func(c *gin.Context) {
 		key := c.Param("key")
 		val, err := storage.Get(key)
 		if err != nil {
-			c.JSON(500, "err")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
-		c.JSON(200, gin.H{
-			"value": val,
-		})
+		c.Data(http.StatusOK, "application/octet-stream", val)
 	}
-	return view
-}
-
-type setKeyData struct {
-	Value string `json:"value"`
 }
 
 func setKeyView(storage *node.RStorage) func(*gin.Context) {
-	view := func(c *gin.Context) {
+	return func(c *gin.Context) {
 		key := c.Param("key")
-		var data setKeyData
-		err := c.BindJSON(&data)
+		value, err := c.GetRawData()
 		if err != nil {
-			log.Printf("[ERROR] Reading POST data error: %+v", err)
-			c.JSON(503, gin.H{})
+			log.Printf("[ERROR] Reading POST data error: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
 		}
 
-		err = storage.Set(key, data.Value)
+		err = storage.Set(key, value)
 		if err != nil {
-			c.JSON(503, gin.H{
-				"code":  "some_code", // todo :)
-				"error": fmt.Sprintf("%+v", err),
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"error": fmt.Sprintf("%v", err),
 			})
-		} else {
-			c.JSON(200, gin.H{
-				"value": data.Value,
-			})
+			return
 		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Value set successfully"})
 	}
-	return view
 }
 
 func setupRouter(raftNode *node.RStorage) *gin.Engine {
@@ -93,6 +82,7 @@ func setupRouter(raftNode *node.RStorage) *gin.Engine {
 
 	router.GET("/config", getConfigView(raftNode))
 	router.POST("/config", setConfigView(raftNode))
+	router.PATCH("/config", patchConfigView(raftNode))
 
 	return router
 }
@@ -113,26 +103,49 @@ func getConfigView(storage *node.RStorage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		config, err := storage.Get("config")
 		if err != nil {
-			log.Println("ERROR FUCKING ERROR %v", err)
+			log.Printf("[ERROR] Failed to get config: %v", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Config not found or not initialized yet"})
 			return
 		}
-		c.Data(http.StatusOK, "application/octet-stream", []byte(config))
+		c.Data(http.StatusOK, "application/octet-stream", config)
 	}
 }
+
 func setConfigView(storage *node.RStorage) func(*gin.Context) {
 	return func(c *gin.Context) {
-		var data struct {
-			Config string `json:"config"`
-		}
-		if err := c.BindJSON(&data); err != nil {
-			c.JSON(400, gin.H{"error": "Invalid request"})
+		configData, err := c.GetRawData()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
-		if err := storage.Set("config", data.Config); err != nil {
-			c.JSON(500, gin.H{"error": "Failed to set config"})
+
+		if err := storage.Set("config", configData); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set config"})
 			return
 		}
-		c.JSON(200, gin.H{"status": "Config updated"})
+		c.JSON(http.StatusOK, gin.H{"status": "Config updated"})
+	}
+}
+
+func patchConfigView(storage *node.RStorage) func(*gin.Context) {
+	return func(c *gin.Context) {
+		var serverConfig config.ServerConfig
+		if err := c.BindJSON(&serverConfig); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		log.Printf("Server %d:\n", serverConfig.ID)
+		log.Printf("  Threshold: %f\n", serverConfig.Monitor.Threshold)
+		log.Printf("  MaxSampleSize: %d\n", serverConfig.Monitor.MaxSampleSize)
+		log.Printf("  MinStdDeviationMillis: %f\n", serverConfig.Monitor.MinStdDeviationMillis)
+		log.Printf("  AcceptableHeartbeatPauseMillis: %d\n", serverConfig.Monitor.AcceptableHeartbeatPauseMillis)
+		log.Printf("  FirstHeartbeatEstimateMillis: %d\n", serverConfig.Monitor.FirstHeartbeatEstimateMillis)
+
+		if err := storage.Patch("config", serverConfig); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to patch config"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "Config patched successfully"})
 	}
 }

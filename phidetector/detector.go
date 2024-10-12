@@ -2,6 +2,7 @@ package phidetector
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -169,9 +170,20 @@ func (b *Builder) SetThreshold(threshold float64) *Builder {
 	return b
 }
 
-func (b *Builder) SetMaxSampleSize(maxSampleSize int) *Builder {
-	b.maxSampleSize = maxSampleSize
+func (b *Builder) SetMaxSampleSize(maxSampleSize uint32) *Builder {
+	u := uint32(maxSampleSize)
+	i, err := SafeUint32ToInt(u)
+	if err != nil {
+		log.Printf("Conversion error: %v", err)
+	}
+	b.maxSampleSize = i
 	return b
+}
+func SafeUint32ToInt(u uint32) (int, error) {
+	if u > uint32(math.MaxInt32) {
+		return 0, fmt.Errorf("uint32 value %d overflows int", u)
+	}
+	return int(u), nil
 }
 
 func (b *Builder) SetMinStdDeviationMillis(minStdDeviationMillis float64) *Builder {

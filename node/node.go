@@ -18,7 +18,7 @@ import (
 	rbolt "github.com/hashicorp/raft-boltdb"
 )
 
-// Config struct handles configuration for a node
+// StorageConfig struct handles configuration for a node
 type StorageConfig struct {
 	RaftBindAddress string
 	HTTPBindAddress string
@@ -31,8 +31,8 @@ type StorageConfig struct {
 // RStorage represents key-value storage with raft based replication
 // Also, it represents finite-state machine which processes Raft log events
 type RStorage struct {
-	mutex    sync.Mutex
-	storage  map[string]string
+	mutex    sync.RWMutex
+	storage  map[string][]byte
 	RaftNode *raft.Raft
 	Config   StorageConfig
 	logger   hclog.Logger
@@ -44,7 +44,7 @@ func NewRStorage(config *StorageConfig) (*RStorage, error) {
 		return nil, errors.New("config cannot be nil")
 	}
 	rstorage := &RStorage{
-		storage: make(map[string]string),
+		storage: make(map[string][]byte),
 		Config:  *config,
 		logger: hclog.New(&hclog.LoggerOptions{
 			Name:   "raft-storage",

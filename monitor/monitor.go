@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -27,23 +28,24 @@ func NewServerMonitor(cfg config.ServerConfig) (*ServerMonitor, error) {
 }
 
 func (sm *ServerMonitor) MonitorServer(done <-chan struct{}) error {
+	fmt.Println("monitor server started")
 	for {
 		select {
 		case <-done:
 			return nil
 		default:
-			start := time.Now()
+			//start := time.Now()
 			err := pingServer(sm.config.URL)
 			end := time.Now()
-			duration := end.Sub(start)
+			// duration := end.Sub(start)
 			timestampMillis := end.UnixNano() / int64(time.Millisecond)
 			if err == nil {
 				sm.detector.Heartbeat(timestampMillis)
 			}
 			phi := sm.detector.Phi(timestampMillis)
 			metrics.PhiGauge.WithLabelValues(fmt.Sprintf("server%d", sm.config.ID)).Set(phi)
-			fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
-				sm.config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
+			//fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
+			//		sm.config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
 			time.Sleep(1 * time.Second)
 		}
 	}
@@ -66,4 +68,13 @@ func createDetector(cfg config.ServerConfig) (*phidetector.PhiAccrualFailureDete
 		SetAcceptableHeartbeatPauseMillis(cfg.Monitor.AcceptableHeartbeatPauseMillis).
 		SetFirstHeartbeatEstimateMillis(cfg.Monitor.FirstHeartbeatEstimateMillis).
 		Build()
+}
+
+func MonitorSingleServer(server config.ServerConfig, done chan struct{}, errChan chan error) {
+	sm, err := NewServerMonitor(server)
+	if err != nil {
+		log.Printf("[ERROR] Error creating monitor for server %d: %v", server.ID, err)
+		return
+	}
+	errChan <- sm.MonitorServer(done)
 }
