@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/33arc/phi-accrual-multi-monitor/config"
 	"github.com/33arc/phi-accrual-multi-monitor/node"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -93,6 +94,7 @@ func setupRouter(raftNode *node.RStorage) *gin.Engine {
 
 	router.GET("/config", getConfigView(raftNode))
 	router.POST("/config", setConfigView(raftNode))
+	router.PUT("/config", putConfigView(raftNode))
 
 	return router
 }
@@ -134,5 +136,28 @@ func setConfigView(storage *node.RStorage) func(*gin.Context) {
 			return
 		}
 		c.JSON(200, gin.H{"status": "Config updated"})
+	}
+}
+
+func putConfigView(storage *node.RStorage) func(*gin.Context) {
+	return func(c *gin.Context) {
+		var serverConfig config.ServerConfig
+		if err := c.BindJSON(&serverConfig); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		log.Printf("Server %d:\n", serverConfig.ID)
+		log.Printf("  Threshold: %f\n", serverConfig.Monitor.Threshold)
+		log.Printf("  MaxSampleSize: %d\n", serverConfig.Monitor.MaxSampleSize)
+		log.Printf("  MinStdDeviationMillis: %f\n", serverConfig.Monitor.MinStdDeviationMillis)
+		log.Printf("  AcceptableHeartbeatPauseMillis: %d\n", serverConfig.Monitor.AcceptableHeartbeatPauseMillis)
+		log.Printf("  FirstHeartbeatEstimateMillis: %d\n", serverConfig.Monitor.FirstHeartbeatEstimateMillis)
+
+		if err := storage.Put("config", serverConfig); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to patch config"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "Config patched successfully"})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
+	"log"
 
 	"gopkg.in/yaml.v2"
 )
@@ -13,6 +14,21 @@ type ServerConfig struct {
 	ID      int           `yaml:"id" json:"id"`
 	URL     string        `yaml:"url" json:"url"`
 	Monitor MonitorConfig `yaml:"monitor" json:"monitor"`
+}
+
+func (s *ServerConfig) Encode() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+
+	if err := enc.Encode(s); err != nil {
+		log.Printf("Error encoding ServerConfig: %v", err)
+		return nil, fmt.Errorf("failed to encode ServerConfig: %v", err)
+	}
+
+	encoded := buf.Bytes()
+	log.Printf("Successfully encoded ServerConfig, data length: %d", len(encoded))
+
+	return encoded, nil
 }
 
 type MonitorConfig struct {
@@ -43,6 +59,18 @@ func DecodeConfig(data []byte) (*Config, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config: %v", err)
 	}
+	return &cfg, nil
+}
+
+func DecodeServerConfig(data []byte) (*ServerConfig, error) {
+	var cfg ServerConfig
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode serverconfig: %v", err)
+	}
+	log.Println("Successfully decoded ServerConfig")
 	return &cfg, nil
 }
 
