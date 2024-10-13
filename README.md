@@ -92,3 +92,10 @@ http://localhost:<monitor-port>/metrics
 
 Replace <monitor-port> with 8000, 8001, or 8002 for the respective monitor.
 
+## Performance Analysis with Flamegraph
+Linux perf_event visualized with Brendan Gregg's FlameGraph
+   ```
+   perf record -F 50 -g -D 30 -p $(pidof phi)
+   ```
+![performance](https://raw.githubusercontent.com/33arc/phi-accrual-multi-monitor/refs/heads/main/images/perf_flamegraph.svg)
+
