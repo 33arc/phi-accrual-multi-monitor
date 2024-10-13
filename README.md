@@ -97,5 +97,5 @@ Linux perf_event visualized with Brendan Gregg's FlameGraph
    ```
    perf record -F 50 -g -D 30 -p $(pidof phi)
    ```
-![performance](images/perf_flamegraph.svg)
+![performance](https://raw.githubusercontent.com/33arc/phi-accrual-multi-monitor/refs/heads/main/images/perf_flamegraph.svg)
 
