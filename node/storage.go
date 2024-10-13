@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/33arc/phi-accrual-multi-monitor/config"
+	"github.com/33arc/phi-accrual-multi-monitor/monitor"
 	"github.com/hashicorp/raft"
 )
 
@@ -65,12 +68,98 @@ func (s *RStorage) Set(key string, value []byte) error {
 	return nil
 }
 
+func (s *RStorage) Put(key string, value config.ServerConfig) error {
+	if s.RaftNode.State() != raft.Leader {
+		return fmt.Errorf("only leader can write to the storage")
+	}
+
+	// turn serverconfig to bytes
+	encodedValue, err := value.Encode()
+	if err != nil {
+		return err
+	}
+
+	// Prepare the log event
+	event := logEvent{
+		Type:  "put",
+		Key:   key,
+		Value: encodedValue,
+	}
+	data, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	// Apply to Raft
+	timeout := time.Second * 5
+	future := s.RaftNode.Apply(data, timeout)
+	if err := future.Error(); err != nil {
+		return err
+	}
+
+	// Store in local map for retrieval
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.storage[key] = encodedValue // Store the original value
+	return nil
+}
+
 // Apply applies a Raft log entry to the key-value store.
 func (s *RStorage) Apply(logEntry *raft.Log) interface{} {
 	s.logger.Debug("Applying a new log entry to the store")
 	var event logEvent
 	if err := json.Unmarshal(logEntry.Data, &event); err != nil {
 		s.logger.Error("Can't read Raft log event", "error", err)
+		return nil
+	}
+	if event.Type == "put" {
+		configBytes, err := s.Get("config")
+		if err != nil {
+			s.logger.Error("failed to get current config")
+			return nil
+		}
+
+		decoded, err := config.DecodeConfig(configBytes)
+		if err != nil {
+			s.logger.Error("failed to decode config(DecodeConfig)", "error", err)
+			return nil
+		}
+
+		cfg, err := config.DecodeServerConfig(event.Value)
+		if err != nil {
+			s.logger.Error("failed to decode config(DecodeServerConfig)", "error", err)
+			return nil
+		}
+
+		s.logger.Debug("successfully decoded ServerConfig", "ID", cfg.ID)
+
+		// Check if the server already exists in the config
+		var doesExist bool = false
+		for _, server := range decoded.Servers {
+			if server.ID == cfg.ID {
+				doesExist = true
+				break
+			}
+		}
+
+		if !doesExist {
+			log.Printf("[INFO] New server detected. Starting monitoring for server %s", cfg.URL)
+			done := make(chan struct{})
+			errChan := make(chan error, 1)
+			go monitor.MonitorSingleServer(*cfg, done, errChan)
+
+			decoded.Servers = append(decoded.Servers, *cfg)
+			encodedNewCfgState, err := decoded.Encode()
+			if err != nil {
+				s.logger.Error("Can't encode the new Config state", "error", err)
+				return nil
+			}
+
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
+			s.storage["config"] = encodedNewCfgState
+		}
+
 		return nil
 	}
 	if event.Type == "set" {

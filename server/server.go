@@ -1,12 +1,19 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
+	"strconv"
+	"time"
 
+	"github.com/33arc/phi-accrual-multi-monitor/config"
 	"github.com/33arc/phi-accrual-multi-monitor/node"
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/raft"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -60,6 +67,10 @@ type setKeyData struct {
 
 func setKeyView(storage *node.RStorage) func(*gin.Context) {
 	view := func(c *gin.Context) {
+		if storage.RaftNode.State() != raft.Leader {
+			// http post
+			// return MOVED to user
+		}
 		key := c.Param("key")
 		var data setKeyData
 		err := c.BindJSON(&data)
@@ -93,6 +104,7 @@ func setupRouter(raftNode *node.RStorage) *gin.Engine {
 
 	router.GET("/config", getConfigView(raftNode))
 	router.POST("/config", setConfigView(raftNode))
+	router.PUT("/config", putConfigView(raftNode))
 
 	return router
 }
@@ -113,7 +125,6 @@ func getConfigView(storage *node.RStorage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		config, err := storage.Get("config")
 		if err != nil {
-			log.Println("ERROR FUCKING ERROR %v", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Config not found or not initialized yet"})
 			return
 		}
@@ -122,6 +133,10 @@ func getConfigView(storage *node.RStorage) gin.HandlerFunc {
 }
 func setConfigView(storage *node.RStorage) func(*gin.Context) {
 	return func(c *gin.Context) {
+		if storage.RaftNode.State() != raft.Leader {
+			forwardToLeader(c, storage, "/config", http.MethodPost)
+			return
+		}
 		var data struct {
 			Config []byte `json:"config"`
 		}
@@ -135,4 +150,119 @@ func setConfigView(storage *node.RStorage) func(*gin.Context) {
 		}
 		c.JSON(200, gin.H{"status": "Config updated"})
 	}
+}
+
+func putConfigView(storage *node.RStorage) func(*gin.Context) {
+	return func(c *gin.Context) {
+		if storage.RaftNode.State() != raft.Leader {
+			forwardToLeader(c, storage, "/config", http.MethodPut)
+			return
+		}
+		var serverConfig config.ServerConfig
+		if err := c.BindJSON(&serverConfig); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		log.Printf("Server %d:\n", serverConfig.ID)
+		log.Printf("  Threshold: %f\n", serverConfig.Monitor.Threshold)
+		log.Printf("  MaxSampleSize: %d\n", serverConfig.Monitor.MaxSampleSize)
+		log.Printf("  MinStdDeviationMillis: %f\n", serverConfig.Monitor.MinStdDeviationMillis)
+		log.Printf("  AcceptableHeartbeatPauseMillis: %d\n", serverConfig.Monitor.AcceptableHeartbeatPauseMillis)
+		log.Printf("  FirstHeartbeatEstimateMillis: %d\n", serverConfig.Monitor.FirstHeartbeatEstimateMillis)
+
+		if err := storage.Put("config", serverConfig); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to patch config"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "Config patched successfully"})
+	}
+}
+
+func forwardToLeader(c *gin.Context, storage *node.RStorage, path string, method string) {
+	leaderAddr := storage.RaftNode.Leader()
+	if leaderAddr == "" {
+		log.Println("Error: No leader available")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "No leader available"})
+		return
+	}
+
+	// Parse the leader's Raft address
+	host, portStr, err := net.SplitHostPort(string(leaderAddr))
+	if err != nil {
+		log.Printf("Error parsing leader address: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse leader address"})
+		return
+	}
+
+	// Convert Raft port to int
+	raftPort, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Printf("Error converting port to integer: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse leader port"})
+		return
+	}
+
+	// Calculate HTTP port
+	httpPort := raftPort + 1000
+
+	leaderURL := fmt.Sprintf("http://%s:%d%s", host, httpPort, path)
+	log.Printf("Forwarding request to leader: %s %s", method, leaderURL)
+
+	// Read the request body
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read request body"})
+		return
+	}
+
+	// Create a new request to the leader
+	req, err := http.NewRequest(method, leaderURL, bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("Error creating request to leader: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request to leader"})
+		return
+	}
+
+	// Copy headers from the original request
+	for name, values := range c.Request.Header {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
+	}
+
+	// Send the request to the leader
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error forwarding request to leader: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to forward request to leader: %v", err)})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading leader response: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read leader response"})
+		return
+	}
+
+	// Set the response status code
+	c.Status(resp.StatusCode)
+
+	// Set the response headers
+	for name, values := range resp.Header {
+		for _, value := range values {
+			c.Header(name, value)
+		}
+	}
+
+	// Write the response body
+	c.Writer.Write(respBody)
+	log.Printf("Successfully forwarded request to leader and received response with status: %d", resp.StatusCode)
 }
