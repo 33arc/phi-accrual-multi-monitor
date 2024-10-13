@@ -95,8 +95,8 @@ services:
       IDENTIFIER: "node_4"
       HTTP: "True"
     ports:
-      - "8002:8000"
-      - "7002:7000"
+      - "8003:8000"
+      - "7003:7000"
     networks:
       phi_network:
         ipv4_address: '10.1.0.114'
