@@ -81,6 +81,28 @@ services:
     depends_on:
       - monitor1
     command: sh -c "/app/phi"
+  monitor4:
+    build:
+      context: ./..
+      dockerfile: Dockerfile
+    volumes:
+      - type: tmpfs
+        target: /data/
+    environment:
+      RAFT_BIND: "10.1.0.114:7000"
+      HTTP_BIND: "10.1.0.114:8000"
+      JOIN: "10.1.0.111:8000"
+      IDENTIFIER: "node_4"
+      HTTP: "True"
+    ports:
+      - "8002:8000"
+      - "7002:7000"
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.114'
+    depends_on:
+      - monitor1
+    command: sh -c "/app/phi"
 
   server1:
     build: .
