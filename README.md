@@ -44,7 +44,7 @@ This project implements a multi-target Phi Accrual Failure Detector with Prometh
 
 5. You can also add additional servers at runtime:
    ```
-   curl -X PATCH http://localhost:8000/config --json '{"id":10,"url":"http://10.1.0.110:8080/heartbeat","monitor":{"threshold":16.0,"maxSampleSize":200,"minStdDeviationMillis":500,"acceptableHeartbeatPauseMillis":0,"firstHeartbeatEstimateMillis":500}}'
+   curl -X PUT http://localhost:8002/config --json '{"id":10,"url":"http://10.1.0.110:8080/heartbeat","monitor":{"threshold":16.0,"maxSampleSize":200,"minStdDeviationMillis":500,"acceptableHeartbeatPauseMillis":0,"firstHeartbeatEstimateMillis":500}}'
    ```
 
 ## Testing
