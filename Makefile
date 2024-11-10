@@ -1,7 +1,7 @@
 GOLANGCI_LINT_VERSION := v1.48.0
 PORTS := 8000 8001 8002
 ENDPOINT := /metrics
-SERVER := server1
+SERVER := test3
 
 .PHONY: all setup lint go-mod-tidy githooks-init run docker-compose-down get_metrics help
 

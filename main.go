@@ -177,7 +177,7 @@ func monitorServers(cfg *config.Config, storage *node.RStorage) {
 func monitorServer(server config.ServerConfig, done chan struct{}, errChan chan error) {
 	sm, err := monitor.NewServerMonitor(server)
 	if err != nil {
-		log.Printf("[ERROR] Error creating monitor for server %d: %v", server.ID, err)
+		log.Printf("[ERROR] Error creating monitor for server %d: %v", server.Name, err)
 		return
 	}
 	errChan <- sm.MonitorServer(done)

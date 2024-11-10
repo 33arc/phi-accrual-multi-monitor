@@ -131,12 +131,12 @@ func (s *RStorage) Apply(logEntry *raft.Log) interface{} {
 			return nil
 		}
 
-		s.logger.Debug("successfully decoded ServerConfig", "ID", cfg.ID)
+		s.logger.Debug("successfully decoded ServerConfig", "Name", cfg.Name)
 
 		// Check if the server already exists in the config
 		var doesExist bool = false
 		for _, server := range decoded.Servers {
-			if server.ID == cfg.ID {
+			if server.Name == cfg.Name {
 				doesExist = true
 				break
 			}
