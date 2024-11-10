@@ -164,7 +164,7 @@ func putConfigView(storage *node.RStorage) func(*gin.Context) {
 			return
 		}
 
-		log.Printf("Server %d:\n", serverConfig.ID)
+		log.Printf("Server %d:\n", serverConfig.Name)
 		log.Printf("  Threshold: %f\n", serverConfig.Monitor.Threshold)
 		log.Printf("  MaxSampleSize: %d\n", serverConfig.Monitor.MaxSampleSize)
 		log.Printf("  MinStdDeviationMillis: %f\n", serverConfig.Monitor.MinStdDeviationMillis)

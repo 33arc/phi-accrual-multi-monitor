@@ -11,7 +11,7 @@ import (
 )
 
 type ServerConfig struct {
-	ID      int           `yaml:"id" json:"id"`
+	Name    string        `yaml:"name" json:"name"`
 	URL     string        `yaml:"url" json:"url"`
 	Monitor MonitorConfig `yaml:"monitor" json:"monitor"`
 }
@@ -108,7 +108,7 @@ func Load(filename string) (*Config, error) {
 
 	// Print the values for all servers' monitor configs
 	for i, server := range config.Servers {
-		fmt.Printf("Server %d:\n", server.ID)
+		fmt.Printf("Server %d:\n", server.Name)
 		fmt.Printf("  Threshold: %f\n", server.Monitor.Threshold)
 		fmt.Printf("  MaxSampleSize: %d\n", server.Monitor.MaxSampleSize)
 		fmt.Printf("  MinStdDeviationMillis: %f\n", server.Monitor.MinStdDeviationMillis)

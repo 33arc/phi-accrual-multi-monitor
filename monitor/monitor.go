@@ -72,7 +72,7 @@ func createDetector(cfg config.ServerConfig) (*phidetector.PhiAccrualFailureDete
 func MonitorSingleServer(server config.ServerConfig, done chan struct{}, errChan chan error) {
 	sm, err := NewServerMonitor(server)
 	if err != nil {
-		log.Printf("[ERROR] Error creating monitor for server %d: %v", server.ID, err)
+		log.Printf("[ERROR] Error creating monitor for server %d: %v", server.Name, err)
 		return
 	}
 	errChan <- sm.MonitorServer(done)
