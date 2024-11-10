@@ -53,7 +53,7 @@ func (sm *ServerMonitor) MonitorServer(done <-chan struct{}) error {
 				"server_name": sm.config.Name,
 			}).Set(phi)
 
-			log.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
+			log.Printf("Server %s: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
 				sm.config.Name, phi, duration, err, end.Format(time.RFC3339Nano))
 			time.Sleep(1 * time.Second)
 		}
