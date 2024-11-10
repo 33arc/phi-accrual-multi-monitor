@@ -1,7 +1,7 @@
 package monitor
 
 import (
-	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"log"
 	"net/http"
 	"time"
@@ -28,6 +28,7 @@ func NewServerMonitor(cfg config.ServerConfig) (*ServerMonitor, error) {
 }
 
 func (sm *ServerMonitor) MonitorServer(done <-chan struct{}) error {
+	startTime := time.Now()
 	for {
 		select {
 		case <-done:
@@ -42,9 +43,18 @@ func (sm *ServerMonitor) MonitorServer(done <-chan struct{}) error {
 				sm.detector.Heartbeat(timestampMillis)
 			}
 			phi := sm.detector.Phi(timestampMillis)
-			metrics.PhiGauge.WithLabelValues(fmt.Sprintf("server%d", sm.config.ID)).Set(phi)
-			fmt.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
-				sm.config.ID, phi, duration, err, end.Format(time.RFC3339Nano))
+
+			runtimeSeconds := time.Since(startTime).Seconds()
+			metrics.ServerRuntime.With(prometheus.Labels{
+				"server_name": sm.config.Name,
+			}).Set(runtimeSeconds)
+
+			metrics.PhiGauge.With(prometheus.Labels{
+				"server_name": sm.config.Name,
+			}).Set(phi)
+
+			log.Printf("Server %d: Phi = %f, Latency = %v, Error = %v, Timestamp = %v\n",
+				sm.config.Name, phi, duration, err, end.Format(time.RFC3339Nano))
 			time.Sleep(1 * time.Second)
 		}
 	}
