@@ -37,6 +37,7 @@ services:
       - server9
       - server10
     command: sh -c "/app/phi --config ./servers.yml"
+
   monitor2:
     build:
       context: ./..
@@ -59,6 +60,7 @@ services:
     depends_on:
       - monitor1
     command: sh -c "/app/phi"
+
   monitor3:
     build:
       context: ./..
@@ -81,6 +83,7 @@ services:
     depends_on:
       - monitor1
     command: sh -c "/app/phi"
+
   monitor4:
     build:
       context: ./..
@@ -106,7 +109,7 @@ services:
 
   server1:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -117,10 +120,18 @@ services:
       - "8081:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server2:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -131,10 +142,18 @@ services:
       - "8082:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server3:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -145,10 +164,18 @@ services:
       - "8083:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server4:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -159,10 +186,18 @@ services:
       - "8084:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server5:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -173,12 +208,18 @@ services:
       - "8085:8080"
     logging:
       driver: "none"
-
-
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server6:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -189,10 +230,18 @@ services:
       - "8086:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server7:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -203,10 +252,18 @@ services:
       - "8087:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server8:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -217,10 +274,18 @@ services:
       - "8088:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server9:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -231,10 +296,18 @@ services:
       - "8089:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'
 
   server10:
     build: .
-    command: python server.py
+    command: /usr/local/bin/app
     volumes:
       - type: tmpfs
         target: /data/
@@ -245,3 +318,11 @@ services:
       - "8090:8080"
     logging:
       driver: "none"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '256M'
+        reservations:
+          cpus: '0.25'
+          memory: '128M'

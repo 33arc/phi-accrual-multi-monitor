@@ -1,0 +1,22 @@
+[package]
+name = "optimized-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.36", features = ["full"] }
+hyper = { version = "0.14", features = ["full"] }
+futures-util = "0.3"
+parking_lot = "0.12"
+mimalloc = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
