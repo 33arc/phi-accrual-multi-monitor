@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'monitor1'
+    static_configs:
+      - targets: ['10.1.0.111:8000']
+        labels:
+          instance: 'monitor1'
+
+  - job_name: 'monitor2'
+    static_configs:
+      - targets: ['10.1.0.112:8000']
+        labels:
+          instance: 'monitor2'
+
+  - job_name: 'monitor3'
+    static_configs:
+      - targets: ['10.1.0.113:8000']
+        labels:
+          instance: 'monitor3'
+
+  - job_name: 'monitor4'
+    static_configs:
+      - targets: ['10.1.0.114:8000']
+        labels:
+          instance: 'monitor4'

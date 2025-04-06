@@ -6,6 +6,36 @@ networks:
         - subnet: 10.1.0.0/24
 
 services:
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.200'
+    depends_on:
+      - monitor1
+      - monitor2
+      - monitor3
+      - monitor4
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+    ports:
+      - "3000:3000"
+    networks:
+      phi_network:
+        ipv4_address: '10.1.0.201'
+    depends_on:
+      - prometheus
+  
   monitor1:
     build:
       context: ./..
